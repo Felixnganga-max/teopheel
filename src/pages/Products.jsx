@@ -65,7 +65,7 @@ export default function Products() {
 
   const brands = [...new Set((products || []).map((p) => p.brand))].sort();
 
-  const openCompat = (p) => { setCompatFor(p); setCompatIds(p.compatibleWith.map((c) => c._id)); };
+  const openCompat = (p) => { setCompatFor(p); setCompatIds((p.compatibleWith || []).map((c) => c._id)); };
   const toggle_ = (list, setList, v) => setList(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const saveCompat = async () => {
     try {
@@ -79,7 +79,7 @@ export default function Products() {
     setBrandName(b);
     // pre-tick the brands every size of this brand already swaps with
     const mine = (products || []).filter((p) => p.brand === b);
-    setBrandPicks([...new Set(mine.flatMap((p) => p.compatibleWith.map((c) => c.brand)))]);
+    setBrandPicks([...new Set(mine.flatMap((p) => (p.compatibleWith || []).map((c) => c.brand)))]);
   };
   const saveBrandCompat = async () => {
     try {
@@ -126,7 +126,7 @@ export default function Products() {
             </div>
             <div className="mt-4 text-xs text-steel flex items-start gap-1.5">
               <Repeat className="w-3.5 h-3.5 mt-0.5 text-accent flex-shrink-0" />
-              {p.compatibleWith.length ? <span>Swaps with <strong className="text-gray-900">{p.compatibleWith.map((c) => c.brand).join(', ')}</strong></span> : <span className="text-steel-light">No swappable brands</span>}
+              {p.compatibleWith?.length ? <span>Swaps with <strong className="text-gray-900">{p.compatibleWith.map((c) => c.brand).join(', ')}</strong></span> : <span className="text-steel-light">No swappable brands</span>}
             </div>
             <div className="flex gap-2 mt-4">
               <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5" /> Edit</Button>

@@ -5,6 +5,13 @@ import axios from 'axios';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'https://lpg-gnxf.vercel.app/api';
 
+// Browsers that block cross-site cookies (Safari, iPhones, private windows) can't keep the refresh cookie, so the
+// refresh token is also kept here. This is what keeps people signed in for 7 days across page reloads.
+const RT_KEY = 'lpg_rt';
+const readRT = () => { try { return localStorage.getItem(RT_KEY); } catch { return null; } };
+export const setRefreshToken = (t) => { try { t ? localStorage.setItem(RT_KEY, t) : localStorage.removeItem(RT_KEY); } catch { /* storage blocked */ } };
+export const getRefreshToken = readRT;
+
 let accessToken = null;
 let onAuthFail = null;
 export const setAccessToken = (t) => { accessToken = t; };
@@ -42,10 +49,16 @@ let refreshing = null;
 export function refreshSession() {
   if (!refreshing) {
     refreshing = axios
-      .post(`${API_URL}/auth/refresh`, null, { withCredentials: true, timeout: 20000 })
+      .post(`${API_URL}/auth/refresh`, { refreshToken: readRT() || undefined }, { withCredentials: true, timeout: 20000 })
       .then((r) => {
         accessToken = r.data.data.accessToken;
-        return r.data.data; // { accessToken, user }
+        if (r.data.data.refreshToken) setRefreshToken(r.data.data.refreshToken);
+        return r.data.data; // { accessToken, refreshToken, user }
+      })
+      .catch((e) => {
+        // Only a real "session is gone" answer clears the saved token; a network blip must not log people out
+        if (e.response?.status === 401) setRefreshToken(null);
+        throw e;
       })
       .finally(() => { refreshing = null; });
   }

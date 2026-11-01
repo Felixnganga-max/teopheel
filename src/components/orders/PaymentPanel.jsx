@@ -108,6 +108,11 @@ export default function PaymentPanel({ order, onStk, onCash, onCheck, onNewLink,
         <h3 className="font-semibold text-gray-900 flex items-center gap-2"><CreditCard className="w-4 h-4 text-accent" /> Payment</h3>
         <span className="text-xl font-bold text-accent">{formatCurrency(s.amountDue)}</span>
       </div>
+      {s.discount !== 0 && s.listAmount != null && (
+        <p className="text-xs text-steel -mt-3">
+          List price {formatCurrency(s.listAmount)} · {s.discount > 0 ? 'discount' : 'extra charge'} {formatCurrency(Math.abs(s.discount))}{s.amountNote ? ` (${s.amountNote})` : ''}
+        </p>
+      )}
 
       {paid ? (
         <div className="rounded-xl bg-green-50 border border-green-200 p-4 space-y-1">
