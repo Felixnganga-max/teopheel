@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Flame, Mail, Lock, Loader2 } from 'lucide-react';
+import { Flame, Mail, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -10,6 +10,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -49,10 +50,16 @@ export default function Login() {
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-steel-light" />
             <input
-              type="password" required autoComplete="current-password" placeholder="Password"
+              type={showPw ? 'text' : 'password'} required autoComplete="current-password" placeholder="Password"
               value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-steel-light text-sm focus:outline-none focus:border-accent/60"
+              className="w-full pl-10 pr-11 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-steel-light text-sm focus:outline-none focus:border-accent/60"
             />
+            <button
+              type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-steel-light hover:text-white cursor-pointer"
+            >
+              {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
           {error && <p className="text-sm text-danger" role="alert">{error}</p>}
           <button
