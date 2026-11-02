@@ -16,6 +16,7 @@ import Messages from './pages/Messages';
 import Invoices from './pages/Invoices';
 import Customers from './pages/Customers';
 import Products from './pages/Products';
+import MixBrands from './pages/MixBrands';
 import Locations from './pages/Locations';
 
 function ProtectedLayout() {
@@ -37,6 +38,7 @@ function ProtectedLayout() {
         <Route path="invoices" element={<Invoices />} />
         <Route path="customers" element={<Customers />} />
         <Route path="products" element={<OwnerOnly><Products /></OwnerOnly>} />
+        <Route path="mix-brands" element={<OwnerOnly><MixBrands /></OwnerOnly>} />
         <Route path="locations" element={<OwnerOnly><Locations /></OwnerOnly>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

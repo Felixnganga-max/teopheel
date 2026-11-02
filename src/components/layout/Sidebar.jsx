@@ -10,6 +10,7 @@ import {
   MapPin,
   FileText,
   Tag,
+  Repeat,
   LogOut,
   Flame,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const ownerLinks = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   ...baseLinks,
   { to: "/products", label: "Gas Brands", icon: Tag },
+  { to: "/mix-brands", label: "Mix Brands", icon: Repeat },
   { to: "/locations", label: "Locations", icon: MapPin },
 ];
 

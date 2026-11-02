@@ -13,6 +13,7 @@ const TITLES = {
   invoices: 'Invoices',
   customers: 'Customers',
   products: 'Gas Brands',
+  'mix-brands': 'Mix Brands',
   locations: 'Locations',
 };
 

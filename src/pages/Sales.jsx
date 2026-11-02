@@ -32,7 +32,7 @@ const INITIAL = {
   invoiceWhatsapp: '',
   riderName: '',
   riderPhone: '',
-  amountInput: '', // blank = list price; otherwise the discounted/agreed total
+  amountInput: '', // price per cylinder; blank = list price
   amountNote: '',
 };
 
@@ -78,9 +78,10 @@ export default function Sales() {
   const selected = stock?.find((r) => r.product._id === form.productId);
   const unitPrice = selected ? (form.orderType === 'refill' ? selected.product.refillPrice : selected.product.fullPrice) : 0;
   const listTotal = unitPrice * form.quantity;
-  const customAmount = form.amountInput !== '' ? Math.round(Number(form.amountInput)) : null;
-  const amountValid = customAmount === null || (Number.isFinite(customAmount) && customAmount >= 1);
-  const total = customAmount !== null && amountValid ? customAmount : listTotal;
+  // amountInput is the price per cylinder the cashier typed in; blank means the list price
+  const customUnit = form.amountInput !== '' ? Math.round(Number(form.amountInput)) : null;
+  const amountValid = customUnit === null || (Number.isFinite(customUnit) && customUnit >= 1);
+  const total = (customUnit !== null && amountValid ? customUnit : unitPrice) * form.quantity;
   const adjusted = total !== listTotal;
   const corporate = corporates?.find((c) => c._id === form.customerId);
 
@@ -106,7 +107,7 @@ export default function Sales() {
 
   const canProceed = () => {
     if (step === 0) return form.deliveryAddress.trim() && form.customerName.trim() && (!isOwner || form.locationId);
-    if (step === 1) return !!selected && form.quantity >= 1 && form.quantity <= selected.full && unitPrice > 0 && returnsOk;
+    if (step === 1) return !!selected && form.quantity >= 1 && form.quantity <= selected.full && unitPrice > 0 && returnsOk && amountValid;
     if (step === 2) return form.paymentMode === 'instant' || !!form.customerId;
     if (step === 3) return amountValid;
     return true;
@@ -315,11 +316,24 @@ export default function Sales() {
             <div className="mt-5 bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">Quantity</span>
               <div className="flex items-center gap-3">
-                <Button size="sm" variant="secondary" disabled={form.quantity <= 1} onClick={() => set({ quantity: form.quantity - 1, returns: {}, amountInput: '' })}><Minus className="w-4 h-4" /></Button>
+                <Button size="sm" variant="secondary" disabled={form.quantity <= 1} onClick={() => set({ quantity: form.quantity - 1, returns: {} })}><Minus className="w-4 h-4" /></Button>
                 <span className="w-8 text-center font-semibold">{form.quantity}</span>
-                <Button size="sm" variant="secondary" disabled={form.quantity >= selected.full} onClick={() => set({ quantity: form.quantity + 1, returns: {}, amountInput: '' })}><Plus className="w-4 h-4" /></Button>
+                <Button size="sm" variant="secondary" disabled={form.quantity >= selected.full} onClick={() => set({ quantity: form.quantity + 1, returns: {} })}><Plus className="w-4 h-4" /></Button>
               </div>
               <span className="font-bold text-accent">{formatCurrency(total)}</span>
+            </div>
+          )}
+
+          {selected && (
+            <div className="mt-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label={`Price per cylinder (KES) · list ${formatCurrency(unitPrice)}`}>
+                <input type="number" min="1" step="1" inputMode="numeric" className={inputCls} value={form.amountInput} onChange={(e) => set({ amountInput: e.target.value })} placeholder={String(unitPrice)} />
+              </Field>
+              <Field label="Reason for the change (optional)">
+                <input className={inputCls} maxLength={120} value={form.amountNote} onChange={(e) => set({ amountNote: e.target.value })} placeholder="e.g. regular customer discount" disabled={!adjusted} />
+              </Field>
+              {!amountValid && <p className="text-xs text-danger sm:col-span-2">Enter a whole amount of at least KES 1.</p>}
+              {adjusted && amountValid && <p className="text-xs text-steel sm:col-span-2">{total < listTotal ? `Discount of ${formatCurrency(listTotal - total)}` : `Extra charge of ${formatCurrency(total - listTotal)}`} on this order. The customer will be asked to pay {formatCurrency(total)}.</p>}
             </div>
           )}
 
@@ -408,14 +422,14 @@ export default function Sales() {
                 <span className={adjusted ? 'text-steel-light line-through' : 'font-medium text-gray-900'}>{formatCurrency(listTotal)}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-3">
-                <Field label="Amount customer pays (KES)">
-                  <input type="number" min="1" step="1" inputMode="numeric" className={inputCls} value={form.amountInput} onChange={(e) => set({ amountInput: e.target.value })} placeholder={String(listTotal)} />
+                <Field label={`Price per cylinder (KES) · list ${formatCurrency(unitPrice)}`}>
+                  <input type="number" min="1" step="1" inputMode="numeric" className={inputCls} value={form.amountInput} onChange={(e) => set({ amountInput: e.target.value })} placeholder={String(unitPrice)} />
                 </Field>
                 <Field label="Reason (optional)">
                   <input className={inputCls} maxLength={120} value={form.amountNote} onChange={(e) => set({ amountNote: e.target.value })} placeholder="e.g. regular customer discount" disabled={!adjusted} />
                 </Field>
                 {!amountValid && <p className="text-xs text-danger sm:col-span-2">Enter a whole amount of at least KES 1.</p>}
-                {adjusted && amountValid && <p className="text-xs text-steel sm:col-span-2">{total < listTotal ? `Discount of ${formatCurrency(listTotal - total)}` : `Extra charge of ${formatCurrency(total - listTotal)}`} applied. The customer will be asked to pay {formatCurrency(total)}.</p>}
+                {adjusted && amountValid && <p className="text-xs text-steel sm:col-span-2">{total < listTotal ? `Discount of ${formatCurrency(listTotal - total)}` : `Extra charge of ${formatCurrency(total - listTotal)}`}. The customer will be asked to pay {formatCurrency(total)}.</p>}
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between py-3">
                 <span className="text-steel font-medium">Total</span>

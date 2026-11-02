@@ -1,5 +1,6 @@
 // frontend/src/pages/Products.jsx  (owner only: gas brands)
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Tag, Plus, Pencil, Power, ImagePlus, Package, Repeat } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -7,7 +8,7 @@ import Modal from '../components/ui/Modal';
 import Field from '../components/ui/Field';
 import { Spinner, ErrorBox, EmptyState } from '../components/ui/Feedback';
 import { useToast } from '../context/ToastContext';
-import { useProducts, useCreateProduct, useUpdateProduct, useSetProductCompatibility, useSetBrandCompatibility } from '../api';
+import { useProducts, useCreateProduct, useUpdateProduct } from '../api';
 import { formatCurrency } from '../lib/format';
 import { inputCls } from '../lib/ui';
 
@@ -18,15 +19,7 @@ export default function Products() {
   const { data: products, loading, error, refetch } = useProducts();
   const create = useCreateProduct();
   const update = useUpdateProduct();
-  const setCompat = useSetProductCompatibility();
-  const setBrandCompat = useSetBrandCompatibility();
 
-  // Compatibility editors
-  const [compatFor, setCompatFor] = useState(null); // product being edited
-  const [compatIds, setCompatIds] = useState([]);
-  const [brandOpen, setBrandOpen] = useState(false);
-  const [brandName, setBrandName] = useState('');
-  const [brandPicks, setBrandPicks] = useState([]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -65,31 +58,6 @@ export default function Products() {
 
   const brands = [...new Set((products || []).map((p) => p.brand))].sort();
 
-  const openCompat = (p) => { setCompatFor(p); setCompatIds((p.compatibleWith || []).map((c) => c._id)); };
-  const toggle_ = (list, setList, v) => setList(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-  const saveCompat = async () => {
-    try {
-      await setCompat.mutate({ id: compatFor._id, compatibleProductIds: compatIds });
-      showToast({ type: 'success', message: 'Compatible brands saved' });
-      setCompatFor(null);
-      refetch();
-    } catch (err) { showToast({ type: 'error', message: err.message }); }
-  };
-  const pickBrand = (b) => {
-    setBrandName(b);
-    // pre-tick the brands every size of this brand already swaps with
-    const mine = (products || []).filter((p) => p.brand === b);
-    setBrandPicks([...new Set(mine.flatMap((p) => (p.compatibleWith || []).map((c) => c.brand)))]);
-  };
-  const saveBrandCompat = async () => {
-    try {
-      const res = await setBrandCompat.mutate({ brand: brandName, compatibleBrands: brandPicks });
-      showToast({ type: 'success', message: `${brandName}: swaps set for ${res.data.length} size${res.data.length === 1 ? '' : 's'}` });
-      setBrandOpen(false);
-      refetch();
-    } catch (err) { showToast({ type: 'error', message: err.message }); }
-  };
-
   const valid = form.brand.trim() && Number(form.sizeKg) > 0 && form.refillPrice !== '' && form.fullPrice !== '' && (editing || form.image);
   const busy = create.loading || update.loading;
 
@@ -101,7 +69,7 @@ export default function Products() {
           <span className="text-sm text-steel"><strong className="text-gray-900">{products?.length ?? '…'}</strong> brand / size combinations</span>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => { setBrandName(''); setBrandPicks([]); setBrandOpen(true); }} disabled={brands.length < 2}><Repeat className="w-4 h-4" /> Swappable brands</Button>
+          <Link to="/mix-brands"><Button variant="outline" className="w-full" disabled={brands.length < 2}><Repeat className="w-4 h-4" /> Mix Brands</Button></Link>
           <Button onClick={openAdd}><Plus className="w-4 h-4" /> Add gas brand</Button>
         </div>
       </div>
@@ -132,55 +100,11 @@ export default function Products() {
               <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5" /> Edit</Button>
               <Button size="sm" variant="ghost" className="flex-1" onClick={() => toggle(p)}><Power className="w-3.5 h-3.5" /> {p.active ? 'Deactivate' : 'Activate'}</Button>
             </div>
-            <Button size="sm" variant="secondary" className="w-full mt-2" onClick={() => openCompat(p)}><Repeat className="w-3.5 h-3.5" /> Compatible brands</Button>
+            <Link to={`/mix-brands?brand=${encodeURIComponent(p.brand)}`}><Button size="sm" variant="secondary" className="w-full mt-2"><Repeat className="w-3.5 h-3.5" /> Mix Brands</Button></Link>
           </div>
         ))}
       </div>
 
-
-      <Modal isOpen={!!compatFor} onClose={() => setCompatFor(null)} title={`Swaps for ${compatFor?.name || ''}`}>
-        <div className="space-y-4">
-          <p className="text-sm text-steel">Tick the {compatFor?.sizeKg}kg cylinders a customer can hand back when you deliver {compatFor?.name}. It works both ways.</p>
-          {(() => {
-            const same = (products || []).filter((p) => compatFor && p._id !== compatFor._id && p.sizeKg === compatFor.sizeKg);
-            if (!same.length) return <p className="text-sm text-danger">No other {compatFor?.sizeKg}kg brands yet. Add them first.</p>;
-            return same.map((p) => (
-              <label key={p._id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 cursor-pointer hover:bg-card">
-                <input type="checkbox" className="w-4 h-4 accent-[#C9A84C]" checked={compatIds.includes(p._id)} onChange={() => toggle_(compatIds, setCompatIds, p._id)} />
-                {p.image?.url ? <img src={p.image.url} alt="" className="w-9 h-9 object-contain rounded bg-card" /> : <Package className="w-5 h-5 text-steel-light" />}
-                <span className="text-sm font-medium text-gray-800">{p.name}</span>
-                {!p.active && <Badge variant="danger">Inactive</Badge>}
-              </label>
-            ));
-          })()}
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setCompatFor(null)}>Cancel</Button>
-            <Button className="flex-1" disabled={setCompat.loading} onClick={saveCompat}>Save</Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal isOpen={brandOpen} onClose={() => setBrandOpen(false)} title="Swappable brands">
-        <div className="space-y-4">
-          <p className="text-sm text-steel">Pick a brand, then tick every brand that can be swapped for it. This applies to each size both brands sell.</p>
-          <Field label="Brand">
-            <select className={inputCls} value={brandName} onChange={(e) => pickBrand(e.target.value)}>
-              <option value="">Select brand…</option>
-              {brands.map((b) => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </Field>
-          {brandName && brands.filter((b) => b !== brandName).map((b) => (
-            <label key={b} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 cursor-pointer hover:bg-card">
-              <input type="checkbox" className="w-4 h-4 accent-[#C9A84C]" checked={brandPicks.includes(b)} onChange={() => toggle_(brandPicks, setBrandPicks, b)} />
-              <span className="text-sm font-medium text-gray-800">{b}</span>
-            </label>
-          ))}
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setBrandOpen(false)}>Cancel</Button>
-            <Button className="flex-1" disabled={!brandName || setBrandCompat.loading} onClick={saveBrandCompat}>Save</Button>
-          </div>
-        </div>
-      </Modal>
 
       <Modal isOpen={open} onClose={close} title={editing ? `Edit ${editing.name}` : 'Add gas brand'}>
         <div className="space-y-4">
