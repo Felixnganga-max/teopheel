@@ -106,7 +106,7 @@ export default function Sales() {
   const returnedText = Object.entries(returnsMap).map(([id, q]) => `${returnOptions.find((o) => o._id === id)?.name || 'cylinder'} × ${q}`).join(', ');
 
   const canProceed = () => {
-    if (step === 0) return form.deliveryAddress.trim() && form.customerName.trim() && (!isOwner || form.locationId);
+    if (step === 0) return !isOwner || !!form.locationId; // name and location are optional
     if (step === 1) return !!selected && form.quantity >= 1 && form.quantity <= selected.full && unitPrice > 0 && returnsOk && amountValid;
     if (step === 2) return form.paymentMode === 'instant' || !!form.customerId;
     if (step === 3) return amountValid;
@@ -115,8 +115,6 @@ export default function Sales() {
 
   const handleDispatch = async () => {
     const payload = {
-      customerName: form.customerName.trim(),
-      deliveryAddress: form.deliveryAddress.trim(),
       productId: form.productId,
       orderType: form.orderType,
       quantity: form.quantity,
@@ -129,6 +127,8 @@ export default function Sales() {
     if (isSwap) {
       payload.returns = Object.entries(returnsMap).map(([productId, quantity]) => ({ productId, quantity }));
     }
+    if (form.customerName.trim()) payload.customerName = form.customerName.trim();
+    if (form.deliveryAddress.trim()) payload.deliveryAddress = form.deliveryAddress.trim();
     if (isOwner) payload.locationId = form.locationId;
     if (form.phone.trim()) payload.phone = form.phone.trim();
     if (form.paymentMode === 'invoice') {
@@ -170,7 +170,7 @@ export default function Sales() {
             <span className="font-semibold text-lg">Order {order.orderNumber} dispatched</span>
           </div>
           <p className="text-sm text-steel">
-            {order.productSnapshot.name} × {order.quantity} ({order.orderType === 'refill' ? 'refill' : 'new cylinder'}) to {order.deliveryAddress} · {formatCurrency(order.amount)}
+            {order.productSnapshot.name} × {order.quantity} ({order.orderType === 'refill' ? 'refill' : 'new cylinder'}) {order.deliveryAddress ? `to ${order.deliveryAddress} · ` : '· '}{formatCurrency(order.amount)}
           </p>
           {order.isExchange && (
             <p className="text-sm text-accent flex items-center gap-1.5"><Repeat className="w-4 h-4" /> Brand swap: collect {order.returns.map((r) => `${r.productSnapshot?.name} × ${r.quantity}`).join(', ')}</p>
@@ -231,7 +231,7 @@ export default function Sales() {
             <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center"><MapPin className="w-5 h-5 text-accent" /></div>
             <div>
               <h3 className="font-semibold text-gray-900">Customer & delivery</h3>
-              <p className="text-sm text-steel">Who is calling and where should we deliver?</p>
+              <p className="text-sm text-steel">Add the name and location if you have them. You can skip both.</p>
             </div>
           </div>
 
@@ -244,14 +244,14 @@ export default function Sales() {
             </Field>
           )}
 
-          <Field label="Customer name" required>
+          <Field label="Customer name (optional)">
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-steel-light" />
               <input className={`${inputCls} pl-10`} value={form.customerName} onChange={(e) => set({ customerName: e.target.value })} placeholder="Full name" />
             </div>
           </Field>
 
-          <Field label="Delivery location" required hint="Area, street, landmark">
+          <Field label="Delivery location (optional)" hint="Area, street, landmark. Skip it for walk-in sales.">
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-steel-light" />
               <input className={`${inputCls} pl-10`} value={form.deliveryAddress} onChange={(e) => set({ deliveryAddress: e.target.value })} placeholder="e.g. Kikuyu, Kinoo Road, near the Total station" />
@@ -405,8 +405,8 @@ export default function Sales() {
             <h3 className="font-semibold text-gray-900 mb-5">Order summary</h3>
             <div className="space-y-3 text-sm">
               {[
-                ['Customer', form.customerName],
-                ['Delivery', form.deliveryAddress],
+                ['Customer', form.customerName.trim() || 'Not given'],
+                ['Delivery', form.deliveryAddress.trim() || 'Not given'],
                 ['Item', `${selected?.product.name} × ${form.quantity} (${form.orderType === 'refill' ? 'refill' : 'new cylinder'})`],
                 ...(form.orderType === 'refill' ? [['Empty back', returnedText]] : []),
                 ['Payment', form.paymentMode === 'instant' ? 'M-Pesa link' : `Invoice — ${corporate?.companyName || corporate?.name || ''}`],

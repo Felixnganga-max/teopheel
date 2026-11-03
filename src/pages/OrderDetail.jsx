@@ -134,7 +134,7 @@ export default function OrderDetail() {
             <div className="space-y-4">
               <Item label="Customer">{order.customerName || '—'}</Item>
               <Item label="Phone">{order.customerPhone || 'No phone set'}</Item>
-              <Item label="Delivery"><span className="inline-flex gap-1"><MapPin className="w-3.5 h-3.5 mt-0.5 text-steel-light flex-shrink-0" />{order.deliveryAddress}</span></Item>
+              <Item label="Delivery"><span className="inline-flex gap-1"><MapPin className="w-3.5 h-3.5 mt-0.5 text-steel-light flex-shrink-0" />{order.deliveryAddress || 'Not given'}</span></Item>
               <Item label="Branch">{order.location?.name || '—'}</Item>
               {order.rider?.name && <Item label="Rider">{order.rider.name}{order.rider.phone ? ` · ${order.rider.phone}` : ''}</Item>}
               {order.deliveredAt && <Item label="Delivered">{formatTime(order.deliveredAt)}</Item>}

@@ -34,7 +34,12 @@ export const MOVEMENT_LABEL = {
   cancel_restock: 'Restocked',
   receive: 'Received',
   adjust: 'Adjustment',
+  refill_out: 'Sent for refill',
+  refill_in: 'Back from refill',
 };
+
+// The three states a cylinder can be in at a branch. Colours pass the palette check; every use also shows a number and a name.
+export const STOCK_COLOR = { full: '#2A8F6E', empty: '#C9A84C', atRefill: '#3B6FB6' };
 
 export async function copyText(text) {
   try {

@@ -9,6 +9,7 @@ export * from './locationsApi';
 export * from './customersApi';
 export * from './invoicesApi';
 export * from './dashboardApi';
+export * from './branchesApi';
 
 export * from './messagesApi';
 export * from './cashApi';

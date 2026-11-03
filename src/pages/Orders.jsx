@@ -143,7 +143,7 @@ export default function Orders() {
                     {order.isExchange && <Badge variant="accent"><Repeat className="w-3 h-3 mr-1" />Swap</Badge>}
                     {smsFailed && <Badge variant="danger"><AlertCircle className="w-3 h-3 mr-1" />SMS failed</Badge>}
                   </div>
-                  <p className="text-sm text-steel mt-1">{formatTime(order.createdAt)} · {order.deliveryAddress}</p>
+                  <p className="text-sm text-steel mt-1">{formatTime(order.createdAt)}{order.deliveryAddress ? ` · ${order.deliveryAddress}` : ''}</p>
                 </div>
                 <p className="text-xl font-bold text-accent">{formatCurrency(order.amount)}</p>
               </div>

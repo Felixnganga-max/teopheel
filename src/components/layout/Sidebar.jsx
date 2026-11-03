@@ -38,7 +38,8 @@ const salesLinks = baseLinks;
 export default function Sidebar({ onNavigate }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const links = user?.role === "owner" ? ownerLinks : salesLinks;
+  const branchId = user?.location?._id || user?.location;
+  const links = user?.role === "owner" ? ownerLinks : branchId ? [...salesLinks, { to: `/branches/${branchId}`, label: "My Branch", icon: MapPin }] : salesLinks;
 
   const handleLogout = async () => {
     await logout();

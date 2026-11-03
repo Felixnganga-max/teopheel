@@ -1,6 +1,7 @@
 // frontend/src/pages/Dashboard.jsx
 import { useState, useMemo } from 'react';
-import { DollarSign, ShoppingBag, FileText, Recycle, BarChart3 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { DollarSign, ShoppingBag, FileText, Recycle, BarChart3, ChevronRight } from 'lucide-react';
 import StatCard from '../components/ui/StatCard';
 import Badge from '../components/ui/Badge';
 import { Spinner, ErrorBox } from '../components/ui/Feedback';
@@ -51,7 +52,7 @@ export default function Dashboard() {
 
       {data && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
             <StatCard title="Billed" value={formatCurrency(totals.billed)} icon={DollarSign} subtitle={`${formatCurrency(totals.collected)} collected`} />
             <StatCard title="Orders" value={totals.orders} icon={ShoppingBag} subtitle="Excludes cancelled" />
             <StatCard title="Unpaid invoices" value={formatCurrency(owed.amount)} icon={FileText} subtitle={`${owed.count} open · ${owed.overdue} overdue`} />
@@ -62,25 +63,26 @@ export default function Dashboard() {
             <div className="xl:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
               <div className="flex items-center gap-2 mb-6">
                 <BarChart3 className="w-5 h-5 text-accent" />
-                <h3 className="font-semibold text-gray-900">Branch performance</h3>
+                <h3 className="font-semibold text-gray-900 whitespace-nowrap">Branch performance</h3>
+                <span className="ml-auto text-xs text-steel-light hidden sm:inline">Tap a branch for details</span>
               </div>
               {sales.length === 0 && <p className="text-sm text-steel py-6 text-center">No orders in this period</p>}
-              <div className="space-y-5">
+              <div className="space-y-3">
                 {sales.map((s) => (
-                  <div key={s._id} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-gray-800 truncate">{s.location || nameOf(s._id)}</span>
-                      <span className="text-steel font-medium">{formatCurrency(s.billed)}</span>
+                  <Link key={s._id} to={`/branches/${s._id}`} className="block rounded-2xl border border-gray-100 p-4 hover:border-accent/50 hover:bg-card/60 active:bg-card transition-colors">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="font-semibold text-gray-900 truncate">{s.location || nameOf(s._id)}</span>
+                      <span className="flex items-center gap-1 text-steel font-medium shrink-0 tabular-nums">{formatCurrency(s.billed)}<ChevronRight className="w-4 h-4 text-steel-light" /></span>
                     </div>
-                    <div className="h-3 bg-card-dark rounded-full overflow-hidden relative">
+                    <div className="mt-3 h-3 bg-card-dark rounded-full overflow-hidden relative">
                       <div className="absolute h-full rounded-full bg-accent/30" style={{ width: `${(s.billed / maxBilled) * 100}%` }} />
                       <div className="absolute h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${(s.collected / maxBilled) * 100}%` }} />
                     </div>
-                    <div className="flex justify-between text-xs text-steel-light">
+                    <div className="mt-2 flex justify-between gap-2 text-xs text-steel-light">
                       <span>{s.orders} orders · {s.refills} refills · {s.fullPurchases} whole</span>
-                      <span>{formatCurrency(s.collected)} collected</span>
+                      <span className="shrink-0">{formatCurrency(s.collected)} collected</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -89,12 +91,13 @@ export default function Dashboard() {
               <h3 className="font-semibold text-gray-900 mb-5">Stock by branch</h3>
               <div className="space-y-4">
                 {(data.stockTotals || []).map((r) => (
-                  <div key={r._id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                  <Link key={r._id} to={`/branches/${r._id}`} className="flex items-center justify-between gap-2 py-3 border-b border-gray-50 last:border-0 hover:bg-card/60 -mx-2 px-2 rounded-lg">
                     <p className="text-sm font-medium text-gray-800 truncate">{nameOf(r._id)}</p>
-                    <div className="text-right text-xs text-steel-light flex-shrink-0 ml-2">
-                      <span className="text-sm font-semibold text-gray-900">{r.full}</span> full · <span className="text-sm font-semibold text-gray-900">{r.empties}</span> empty
+                    <div className="text-right text-xs text-steel-light flex-shrink-0 flex items-center gap-1">
+                      <span><span className="text-sm font-semibold text-gray-900 tabular-nums">{r.full}</span> full · <span className="text-sm font-semibold text-gray-900 tabular-nums">{r.empties}</span> empty</span>
+                      <ChevronRight className="w-4 h-4" />
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -104,7 +107,24 @@ export default function Dashboard() {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-4 sm:px-6 py-5 border-b border-gray-100"><h3 className="font-semibold text-gray-900">Recent orders</h3></div>
-        <div className="overflow-x-auto">
+        <ul className="md:hidden divide-y divide-gray-50">
+          {recent?.map((o) => (
+            <li key={o._id}>
+              <Link to={`/orders/${o._id}`} className="flex items-center gap-3 px-4 py-4 active:bg-card">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 truncate">{o.orderNumber} <span className="font-normal text-steel">· {o.customerName || 'Walk-in'}</span></p>
+                  <p className="text-xs text-steel mt-0.5 truncate">{o.location?.name} · {o.productSnapshot?.name} × {o.quantity}</p>
+                  <div className="mt-2 flex gap-1.5 flex-wrap">
+                    <Badge variant={ORDER_STATUS_VARIANT[o.status]}>{o.status}</Badge>
+                    <Badge variant={PAYMENT_STATUS[o.paymentStatus]?.variant}>{PAYMENT_STATUS[o.paymentStatus]?.label}</Badge>
+                  </div>
+                </div>
+                <span className="font-bold tabular-nums text-gray-900">{formatCurrency(o.amount)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[640px]">
             <thead>
               <tr className="text-left text-xs font-semibold text-steel uppercase tracking-wider">
@@ -127,8 +147,8 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table>
-          {recent?.length === 0 && <p className="text-sm text-steel text-center py-8">No orders yet</p>}
         </div>
+        {recent?.length === 0 && <p className="text-sm text-steel text-center py-8">No orders yet</p>}
       </div>
     </div>
   );
