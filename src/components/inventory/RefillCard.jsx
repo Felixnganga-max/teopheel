@@ -1,92 +1,130 @@
 import { useState } from 'react';
-import { Package, Loader2 } from 'lucide-react';
+import { Recycle, Truck, PackageCheck, Loader2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
-import Counter from '../ui/Counter';
 import { useToast } from '../../context/ToastContext';
-import { useReceiveStock } from '../../api';
-import { inputCls } from '../../lib/ui';
-import { STOCK_COLOR } from '../../lib/format';
+import { useResetEmpties, useCompleteRefill } from '../../api';
+import { formatTimeAgo, STOCK_COLOR } from '../../lib/format';
 
-// Receive cylinders: one list, every brand with a Full and an Empty counter. Fill what arrived, tap Save.
-export default function ReceiveSheet({ isOpen, onClose, products, locations, isOwner, defaultLocationId, onSaved }) {
+const brandLine = (p) => p?.name || `${p?.brand || ''} ${p?.sizeKg || ''}kg`;
+
+// One branch's refill trip, in two taps. The counts come from the system, nobody types a number.
+//   1. Reset empty cylinders  -> empties go to "at the refill station"
+//   2. Refill                 -> the same cylinders come back as full stock
+export default function RefillCard({ state, name, locationId, onChanged }) {
   const { showToast } = useToast();
-  const receive = useReceiveStock();
-  const [locationId, setLocationId] = useState(defaultLocationId || '');
-  const [rows, setRows] = useState({}); // { [productId]: { full, empty } }
-  const [note, setNote] = useState('');
+  const reset = useResetEmpties();
+  const complete = useCompleteRefill();
+  const [confirm, setConfirm] = useState(null); // 'reset' | 'refill'
 
-  const setRow = (id, patch) => setRows((r) => ({ ...r, [id]: { full: 0, empty: 0, ...r[id], ...patch } }));
-  const items = Object.entries(rows).map(([productId, v]) => ({ productId, fullReceived: v.full || 0, emptiesReceived: v.empty || 0 })).filter((i) => i.fullReceived > 0 || i.emptiesReceived > 0);
-  const totalFull = items.reduce((n, i) => n + i.fullReceived, 0);
-  const totalEmpty = items.reduce((n, i) => n + i.emptiesReceived, 0);
-  const branch = isOwner ? locationId || defaultLocationId : true;
-  const ok = items.length > 0 && !!branch;
+  const run = state.run;
+  const busy = reset.loading || complete.loading;
+  const lines = run ? run.items.map((i) => ({ name: brandLine(i.productSnapshot), quantity: i.quantity })) : state.byProduct.map((r) => ({ name: brandLine(r.product), quantity: r.quantity }));
 
-  const close = () => { setRows({}); setNote(''); onClose(); };
-
-  const save = async () => {
+  const doReset = async () => {
     try {
-      await receive.mutate({ items, note: note.trim() || undefined, ...(isOwner && { locationId: locationId || defaultLocationId }) });
-      showToast({ type: 'success', message: `Received ${totalFull} full and ${totalEmpty} empty cylinders` });
-      setRows({}); setNote('');
-      onSaved();
-    } catch (err) { showToast({ type: 'error', message: err.message }); }
+      const res = await reset.mutate(locationId);
+      setConfirm(null);
+      showToast({ type: 'success', message: `Reset. ${res.data.total} empty cylinders are at the refill station. Tap Refill when you're back.` });
+      onChanged();
+    } catch (err) { setConfirm(null); showToast({ type: 'error', message: err.message }); onChanged(); }
+  };
+  const doRefill = async () => {
+    try {
+      const res = await complete.mutate(locationId);
+      setConfirm(null);
+      showToast({ type: 'success', message: `Refilled. ${res.data.total} full cylinders added to stock.` });
+      onChanged();
+    } catch (err) { setConfirm(null); showToast({ type: 'error', message: err.message }); onChanged(); }
   };
 
+  // ---------- A trip is out: waiting for Refill ----------
+  if (run) {
+    return (
+      <section className="rounded-3xl overflow-hidden bg-shell text-white shadow-lg">
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center gap-2 text-sm" style={{ color: '#9DBEEA' }}>
+            <Truck className="w-4 h-4" /> {name ? `${name} · ` : ''}At the refill station
+          </div>
+          <p className="mt-3 text-6xl font-bold tabular-nums leading-none">{run.total}</p>
+          <p className="mt-2 text-base text-white/80">empty cylinders sent for refilling</p>
+          <p className="mt-1 text-xs text-white/50">Reset {formatTimeAgo(run.startedAt)}</p>
+
+          <ul className="mt-5 grid grid-cols-1 gap-2">
+            {lines.map((l) => (
+              <li key={l.name} className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3 text-sm">
+                <span className="text-white/90">{l.name}</span>
+                <span className="font-semibold tabular-nums">{l.quantity}</span>
+              </li>
+            ))}
+          </ul>
+
+          {state.emptyNow > 0 && <p className="mt-4 text-xs text-white/60">{state.emptyNow} new {state.emptyNow === 1 ? 'empty' : 'empties'} came in since. {state.emptyNow === 1 ? 'It stays' : 'They stay'} on the shelf for the next trip.</p>}
+
+          <p className="mt-5 text-sm text-white/80">Go and refill. When you are back with the full cylinders, tap Refill.</p>
+          <button
+            type="button" disabled={busy} onClick={() => setConfirm('refill')}
+            className="mt-3 w-full h-14 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 active:scale-[0.99] transition"
+            style={{ background: STOCK_COLOR.full }}
+          >
+            <PackageCheck className="w-5 h-5" /> Refill
+          </button>
+        </div>
+
+        <Modal
+          isOpen={confirm === 'refill'} onClose={() => setConfirm(null)} title="Add the refilled cylinders?" size="sm"
+          footer={<div className="flex gap-3"><Button variant="secondary" className="flex-1" size="lg" onClick={() => setConfirm(null)}>Not yet</Button><Button className="flex-1" size="lg" disabled={busy} onClick={doRefill}>{complete.loading && <Loader2 className="w-4 h-4 animate-spin" />} Refill</Button></div>}
+        >
+          <p className="text-sm text-steel">These {run.total} cylinders will be added to your <strong className="text-gray-900">full stock</strong>:</p>
+          <ul className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-100">
+            {lines.map((l) => <li key={l.name} className="flex justify-between px-4 py-3 text-sm"><span>{l.name}</span><strong className="tabular-nums">{l.quantity}</strong></li>)}
+          </ul>
+        </Modal>
+      </section>
+    );
+  }
+
+  // ---------- No trip out ----------
+  const ready = state.emptyNow > 0;
   return (
-    <Modal
-      isOpen={isOpen} onClose={close} title="Receive stock"
-      footer={
-        <div className="space-y-3">
-          <p className="text-sm text-center text-steel">
-            {items.length ? <><strong className="text-gray-900 tabular-nums">{totalFull}</strong> full · <strong className="text-gray-900 tabular-nums">{totalEmpty}</strong> empty</> : 'Enter what arrived'}
-          </p>
-          <Button size="lg" className="w-full" disabled={!ok || receive.loading} onClick={save}>{receive.loading && <Loader2 className="w-4 h-4 animate-spin" />} Save</Button>
-        </div>
-      }
-    >
-      <div className="space-y-5">
-        {isOwner && (
-          <label className="block">
-            <span className="text-sm font-medium text-gray-700">Branch</span>
-            <select className={`${inputCls} mt-1.5`} value={locationId || defaultLocationId || ''} onChange={(e) => setLocationId(e.target.value)}>
-              <option value="">Select branch…</option>
-              {locations?.map((l) => <option key={l._id} value={l._id}>{l.name}</option>)}
-            </select>
-          </label>
-        )}
+    <section className="rounded-3xl bg-white border border-gray-100 shadow-sm p-5 sm:p-6">
+      <div className="flex items-center gap-2 text-sm text-steel"><Recycle className="w-4 h-4" style={{ color: STOCK_COLOR.empty }} /> {name ? `${name} · ` : ''}Empty cylinders on the shelf</div>
+      <p className="mt-3 text-6xl font-bold tabular-nums leading-none text-gray-900">{state.emptyNow}</p>
 
-        <div className="space-y-3">
-          {products.map((p) => {
-            const r = rows[p._id] || {};
-            return (
-              <div key={p._id} className="rounded-2xl border border-gray-100 p-3 sm:p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  {p.image?.url ? <img src={p.image.url} alt="" className="w-10 h-10 object-contain rounded-lg bg-card" /> : <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center"><Package className="w-4 h-4 text-accent" /></div>}
-                  <span className="font-semibold text-gray-900">{p.name}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs font-medium text-center mb-1 flex items-center justify-center gap-1.5 text-steel"><span className="w-2 h-2 rounded-full" style={{ background: STOCK_COLOR.full }} /> Full</p>
-                    <Counter value={r.full} onChange={(v) => setRow(p._id, { full: v })} label="" tone="green" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-center mb-1 flex items-center justify-center gap-1.5 text-steel"><span className="w-2 h-2 rounded-full" style={{ background: STOCK_COLOR.empty }} /> Empty</p>
-                    <Counter value={r.empty} onChange={(v) => setRow(p._id, { empty: v })} label="" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {products.length === 0 && <p className="text-sm text-steel text-center py-6">Add a gas brand first.</p>}
-        </div>
+      {ready ? (
+        <>
+          <ul className="mt-5 grid grid-cols-1 gap-2">
+            {lines.map((l) => (
+              <li key={l.name} className="flex items-center justify-between rounded-xl bg-card px-4 py-3 text-sm">
+                <span className="text-gray-800">{l.name}</span>
+                <span className="font-semibold tabular-nums text-gray-900">{l.quantity}</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button" disabled={busy} onClick={() => setConfirm('reset')}
+            className="mt-5 w-full h-14 rounded-2xl font-bold text-base text-shell bg-accent hover:bg-accent-hover flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 active:scale-[0.99] transition"
+          >
+            <Recycle className="w-5 h-5" /> Reset empty cylinders
+          </button>
+          <p className="mt-2 text-xs text-steel-light text-center">Tap when you take the empties to be refilled.</p>
+        </>
+      ) : (
+        <p className="mt-3 text-sm text-steel">Nothing to send for refill right now. Empties appear here when customers hand them back.</p>
+      )}
 
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Note (optional)</span>
-          <input className={`${inputCls} mt-1.5`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Delivery note, truck, who dropped it" />
-        </label>
-      </div>
-    </Modal>
+      {state.lastCompleted && <p className="mt-4 pt-4 border-t border-gray-100 text-xs text-steel-light">Last trip: {state.lastCompleted.total} cylinders refilled {formatTimeAgo(state.lastCompleted.completedAt)}</p>}
+
+      <Modal
+        isOpen={confirm === 'reset'} onClose={() => setConfirm(null)} title="Send empties for refilling?" size="sm"
+        footer={<div className="flex gap-3"><Button variant="secondary" className="flex-1" size="lg" onClick={() => setConfirm(null)}>Cancel</Button><Button className="flex-1" size="lg" disabled={busy} onClick={doReset}>{reset.loading && <Loader2 className="w-4 h-4 animate-spin" />} Reset {state.emptyNow}</Button></div>}
+      >
+        <p className="text-sm text-steel">All <strong className="text-gray-900">{state.emptyNow} empty cylinders</strong> will move to the refill station:</p>
+        <ul className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-100">
+          {lines.map((l) => <li key={l.name} className="flex justify-between px-4 py-3 text-sm"><span>{l.name}</span><strong className="tabular-nums">{l.quantity}</strong></li>)}
+        </ul>
+        <p className="mt-4 text-sm text-steel">After you refill, come back and tap <strong className="text-gray-900">Refill</strong>.</p>
+      </Modal>
+    </section>
   );
 }
